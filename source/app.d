@@ -83,32 +83,10 @@ void main(string[] argv) {
 	writeln("Beginning execution!");
 	auto vblanks = StopWatch(AutoStart.yes);
 	while (true) {
-		// write(CLEAR);
-		//nes.dump();
 		nes.step();
-		//Thread.sleep(dur!"msecs"(10));
-		//readln();
 		if (vblanks.peek() >= dur!"msecs"(30)) {
 			ppu.drawFrame(nes);
 			vblanks.reset();
 		}
 	}
-	/*
-	emu6502.mem.createMap(0x0000, 0xFFFF, &bufRead, &bufWrite);
-	emu6502.mem[0] = 0x69;
-	emu6502.mem[1] = 0x01;
-	emu6502.mem[2] = 0x48;
-	emu6502.mem[3] = 0x4C;
-	emu6502.mem[4] = 0x00;
-	emu6502.mem[5] = 0x00;
-	//emu6502.mem[2] = 0xDE;
-	//emu6502.mem[3] = 0x6D;
-	//emu6502.mem[4] = 0xEF;
-	//emu6502.mem[5] = 0xBE;
-	//emu6502.mem[0xAE] = 0xEE;
-	//emu6502.mem[0xAF] = 0xBE;
-	//emu6502.mem[0xBEEF] = 0xAB;
-	foreach(i; 0..100) emu6502.step();
-	
-	emu6502.dump();*/
 }

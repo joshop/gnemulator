@@ -62,14 +62,12 @@ NESRom readRom(string path) {
 	rom.hasFourScreen = (rom.flags6 & 0x8) == 1;
 	writefln("Rom has four-screen: %s", rom.hasFourScreen);
 	int romPtr = 16;
-	auto prgRomFile = File("prgRom", "w");
 	if (rom.hasTrainer) {
 		rom.trainer = romContents[romPtr..romPtr+512];
 		romPtr += 512;
 	}
 	foreach (i; 0..rom.prgRomSize) {
 		rom.prgRom ~= romContents[romPtr..romPtr+16384];
-		prgRomFile.rawWrite(romContents[romPtr..romPtr+16384]);
 		romPtr += 16384;
 	}
 	foreach (i; 0..rom.chrRomSize) {
@@ -81,7 +79,6 @@ NESRom readRom(string path) {
 	} else {
 		writeln("Read entire ROM successfully.");
 	}
-	prgRomFile.close();
 	return rom;
 }
 void mapRom(NESRom rom, ref Memory mem) {
