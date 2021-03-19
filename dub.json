@@ -1,0 +1,10 @@
+{
+	"authors": [
+		"rous"
+	],
+	"dependencies": {
+		"arsd-official:simpledisplay": "~>8.5.3"
+	},
+	"description": "A bare-bones D NES emulator.",
+	"name": "gnemulator"
+}
