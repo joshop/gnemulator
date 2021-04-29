@@ -44,10 +44,10 @@ class Instruction {
 			case AddrMode.ABSOLUTE:
 				return cpu.mem[cpu.operandWord];
 			case AddrMode.ABSX:
-				cpu.chkCarryFlagAdd(cpu.operandByte, cpu.xReg);
+				// cpu.chkCarryFlagAdd(cpu.operandByte, cpu.xReg);
 				return cpu.mem[cast(ushort)(cpu.operandWord + cpu.xReg)];
 			case AddrMode.ABSY:
-				cpu.chkCarryFlagAdd(cpu.operandByte, cpu.yReg);
+				// cpu.chkCarryFlagAdd(cpu.operandByte, cpu.yReg);
 				return cpu.mem[cast(ushort)(cpu.operandWord + cpu.yReg)];
 			case AddrMode.INDX:
 				return cpu.mem[cast(ushort)((cpu.mem[cast(ushort)(cpu.operandByte + cpu.xReg + 1)] << 8) + cpu.mem[cast(ushort)(cpu.operandByte + cpu.xReg)])];
@@ -117,7 +117,7 @@ class AdcInstruction : Instruction {
 		ubyte result = cast(ubyte)(inp1 + inp2 + (cpu.isSet(CPUFlags.C) ? 1 : 0));
 		cpu.chkNegFlag(result);
 		cpu.chkZeroFlag(result);
-		cpu.chkCarryFlagAdd(inp1, inp2);
+		cpu.chkCarryFlagAdd(inp1, inp2, (cpu.isSet(CPUFlags.C) ? 1 : 0));
 		cpu.chkOverflowFlagAdd(inp1, inp2, result);
 		cpu.accumulator = result;
 	}
@@ -635,8 +635,8 @@ class SbcInstruction : Instruction {
 		ubyte result = cast(ubyte)(inp1 - inp2 - (cpu.isSet(CPUFlags.C) ? 0 : 1));
 		cpu.chkNegFlag(result);
 		cpu.chkZeroFlag(result);
-		cpu.chkCarryFlagAdd(inp1, inp2);
-		cpu.chkOverflowFlagAdd(inp1, inp2, result);
+		cpu.chkCarryFlagSub(inp1, inp2);
+		cpu.chkOverflowFlagSub(inp1, inp2, result);
 		cpu.accumulator = result;
 	}
 }
@@ -645,7 +645,7 @@ class SecInstruction : Instruction {
 		super(iOpcode, iSize, iCycles, iAddr);
 	}
 	override void execute(ref EmuCPU cpu) {
-			cpu.setFlag(CPUFlags.C);
+		cpu.setFlag(CPUFlags.C);
 	}
 }
 class SedInstruction : Instruction {
@@ -653,7 +653,7 @@ class SedInstruction : Instruction {
 		super(iOpcode, iSize, iCycles, iAddr);
 	}
 	override void execute(ref EmuCPU cpu) {
-			cpu.setFlag(CPUFlags.D);
+		cpu.setFlag(CPUFlags.D);
 	}
 }
 class SeiInstruction : Instruction {
@@ -661,7 +661,7 @@ class SeiInstruction : Instruction {
 		super(iOpcode, iSize, iCycles, iAddr);
 	}
 	override void execute(ref EmuCPU cpu) {
-			cpu.setFlag(CPUFlags.I);
+		cpu.setFlag(CPUFlags.I);
 	}
 }
 class StaInstruction : Instruction {

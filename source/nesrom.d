@@ -34,7 +34,9 @@ class RomWriteException : Exception {
 }
 NESRom readRom(string path) {
 	auto romFile = File(path);
-	auto romContents = romFile.rawRead(new char[romFile.size()]);
+	//auto romContents = romFile.rawRead(new char[romFile.size()]);
+	auto romContents = new char[romFile.size()];
+	romFile.rawRead(romContents);	
 	auto rom = NESRom();
 	writefln("Reading rom %s...", path);
 	writefln("Header contains '%s'", romContents[0..4]);
@@ -86,10 +88,15 @@ void mapRom(NESRom rom, ref Memory mem) {
 		ubyte prgRead(ushort addr) {
 			return rom.prgRom[(addr - 0x8000) >> 14][(addr - 0x8000) & 0x3FFF];
 		}
+		ubyte mirroredRead(ushort addr) {
+			return rom.prgRom[(addr - 0xC000) >> 14][(addr - 0xC000) & 0x3FFF];
+		}
+
 		void cannotWrite(ushort addr, ubyte value) {
 			throw new RomWriteException(format!"Can't write to read-only memory at address %#04x."(addr));
 		}
-		mem.createMap(0x8000, 0xFFFF, &prgRead, &cannotWrite);
+		mem.createMap(0x8000, 0xBFFF, &prgRead, &cannotWrite);
+		mem.createMap(0xC000, 0xFFFF, rom.prgRomSize == 2 ? &prgRead : &mirroredRead, &cannotWrite);
 	}
 }
 

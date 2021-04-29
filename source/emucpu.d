@@ -4,6 +4,7 @@ import std.format: format;
 import std.algorithm;
 import std.array;
 import std.stdio;
+import std.typecons;
 
 enum CPUFlags {
 	C = 1 << 0,
@@ -24,8 +25,8 @@ enum UNMAPPED_VAL = 0xEE;
 enum INIT_PC = 0x0000;
 enum INIT_STACKPTR = 0xFF;
 enum STACK_PAGE = 0x01;
-ushort debugAt = 0x0000;
-enum INTERACTIVE_DBG = false;
+ushort debugAt = 0xEF99;
+enum INTERACTIVE_DBG = true;
 class DecodeException : Exception {
 	this(string msg) {
 		super(msg);
@@ -39,23 +40,28 @@ struct MemoryMap {
 }
 struct Memory {
 	MemoryMap[] maps;
-	string[] dbgLog;
-	bool allowLog;
+	ushort[] watchPts;
 	EmuCPU* cpu;
 	string label;
+	bool silenceUnmapped;
+	bool silenceWatch;
 	ubyte opIndex(ushort idx) {
+		if (!silenceWatch && watchPts.canFind(idx)) {
+			writefln("WATCHPOINT: %s read from %04x from %04x!", label, idx, (*cpu).programCtr);
+		}
 		foreach (map; maps) {
 			if (idx >= map.starting && idx <= map.ending) {
-				if (allowLog) dbgLog ~= format!"READ  %04x -> %02x"(idx, map.readFx(idx));
 				return map.readFx(idx);
 			}
 		}
+		if (silenceUnmapped) return UNMAPPED_VAL;
 		writefln!"(%s READ from %04x) Warning: memory address %#04x is unmapped!"(label, (*cpu).programCtr, idx);
-		if (allowLog) dbgLog ~= format!"READ  %04x -> UNMAPPED"(idx);
 		return UNMAPPED_VAL;
 	}
 	ubyte opIndexAssign(ubyte value, ushort idx) {
-		if (allowLog) dbgLog ~= format!"WRITE %04x <- %02x"(idx, value);
+		if (!silenceWatch && watchPts.canFind(idx)) {
+			writefln("WATCHPOINT: %s wrote to %04x the value %02x from %04x!", label, idx, value, (*cpu).programCtr);
+		}
 		bool unmapped = true;
 		foreach (map; maps) {
 			if (idx >= map.starting && idx <= map.ending) {
@@ -63,7 +69,7 @@ struct Memory {
 				unmapped = false;
 			}
 		}
-		if (unmapped) {
+		if (unmapped && !silenceUnmapped) {
 			writefln!"(%s WRITE from %04x) Warning: memory address %#04x is unmapped!"(label, (*cpu).programCtr, idx);
 		}
 		return value;
@@ -83,6 +89,8 @@ struct EmuCPU {
 	ulong numIns;
 	Instruction[] instructionSet;
 	Memory mem;
+	ulong steps;
+	Tuple!(Instruction, ushort, ushort)[] lastInstructions;
 	Instruction decode(ubyte opcode) {
 		auto matches = filter!(a => a.opcode == opcode)(instructionSet).array;
 		if (matches.length > 1) {
@@ -94,28 +102,38 @@ struct EmuCPU {
 		}
 	}
 	void step() {
-		if (programCtr == debugAt || DEBUGGING) {
+		if ((programCtr == debugAt || DEBUGGING) && (programCtr + 1 == programCtr)) {
 			if (INTERACTIVE_DBG) {
+				foreach(i; 0..8) {
+					writefln("%s %s %04x at %04x", lastInstructions[i][0], lastInstructions[i][0].addressing, lastInstructions[i][1], lastInstructions[i][2]);
+				}
 				dump();
-				readln();
+				DEBUGGING = readln() != "c\n";
+			} else {
+				enableDbg();
 			}
-			enableDbg();
 		}
 		auto decodeOp = mem[programCtr];
 		auto ins = decode(decodeOp);
-		mem.dbgLog = [];
-		mem.allowLog = false;
+		if (lastInstructions.length < 8) {
+			lastInstructions ~= tuple(ins, this.operandWord, programCtr);
+		} else {
+			lastInstructions ~= tuple(ins, this.operandWord, programCtr);
+			lastInstructions = lastInstructions[1..$];
+		}
+		// writeln(ins);
 		ins.executeDebug(this);
-		mem.allowLog = false;
 		lastPc = programCtr;
 		programCtr += ins.size;
+		steps++;
+		
 		// writefln("Performing CPU step %d", numIns++);
 	}
 	void setFlag(ubyte flag) {
 		flags |= flag;
 	}
 	void clearFlag(ubyte flag) {
-		flags &= cast(ubyte)(~flag);
+		flags &= cast(ubyte)(~cast(int)flag);
 	}
 	void toggleFlag(ubyte flag) {
 		flags ^= flag;
@@ -151,8 +169,8 @@ struct EmuCPU {
 			clearFlag(CPUFlags.V);
 		}
 	}
-	void chkCarryFlagAdd(ubyte inp1, ubyte inp2) {
-		if (inp1 + inp2 > 0xFF) {
+	void chkCarryFlagAdd(ubyte inp1, ubyte inp2, ubyte optional = 0) {
+		if (inp1 + inp2 + optional > 0xFF) {
 			setFlag(CPUFlags.C);
 		} else {
 			clearFlag(CPUFlags.C);
@@ -213,7 +231,6 @@ struct EmuCPU {
 		}		
 		dumpPage(0);
 		dumpPage(3);
-		writefln("Memory accesses:\n%s", join(mem.dbgLog, '\n'));
 	}
 	void triggerInterrupt(IntType interrupt) {
 		switch (interrupt) {
